@@ -1,0 +1,87 @@
+---
+title: "Research Method in Finance"
+author: "GROUP 2"
+date: "2024-09-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Load necessary libraries
+library(plm)
+library(lmtest)
+library(stargazer)
+library(foreign)
+library(mfx)
+library(pROC)
+```
+
+```{r}
+# Load the dataset
+data <- read.csv("credit_data.csv",header=TRUE)
+data
+```
+
+```{r}
+# Test train split
+set.seed(100)
+indices = sample(1:nrow(data), 0.7*nrow(data))
+train = data[indices,]
+test = data[-indices,]
+```
+
+```{r}
+data$classification <- as.numeric(as.character(data$classification))
+```
+
+```{r}
+# Fit the Probit model
+probit_model <- glm(classification ~ credit_amount + duration + age + credit_history + purpose + savings_status + employment, data = train, family = binomial(link = "probit"))
+
+# Summary of the model
+summary(probit_model)
+```
+
+```{r}
+#Marginal effect
+probitmfx(classification ~ credit_amount + duration + age + credit_history + purpose + savings_status + employment, data = train)
+```
+
+```{r}
+#Visualization
+par(cex.axis=1.5)
+plot(probit_model$fitted.values,type="l",xlab="",ylab="")
+```
+
+
+```{r}
+# Evaluate model with pseudo R-squared
+k <- glm(data$classification~1,family=binomial(link="probit"))
+logLik(probit_model)
+logLik(k)
+1-(logLik(probit_model)/logLik(k))
+```
+
+```{r}
+# Predict probabilities of default
+threshold=0.5
+p <- predict(probit_model,newdata=train,type="response")
+predicted_values <- ifelse(p>threshold,1,0)
+actual_values <- train$classification
+```
+
+```{r}
+#Confusion matrix
+conf_matrix <- table(predicted_values,actual_values)
+conf_matrix
+```
+
+```{r}
+accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+accuracy
+```
+
+
+```{r}
+plot(actual_values, p, main = "Observed vs. Predicted", xlab = "Observed ", ylab = "Predicted ")
+```
